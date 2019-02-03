@@ -1,4 +1,4 @@
-// *** PAGE PROPERTIES ***
+// *** PROPERTIES ***
 var canvas;
 var canvasParent = "";
 var startTime;
@@ -8,18 +8,17 @@ var targetFPS = 30;
 
 // *** BRANCH PROPERTIES ***
 // The degrees where the branches grow
-var numFlowers = 30;
-var spawnWidth = 700;
-// canvas 
-var spawnArea;
+var numFlowers = 24;
+var spawnWidth = 900;
+
 var minDeg = -90,
   maxDeg = -120;
 // due to how the canvas setup this should be the opposite of the regular cartesian coordinate
 var blossomColor;
 var minLifetime = 2,
   maxLifetime = 7;
-var minBranchWidth = 3,
-  maxBranchWidth = 6.5;
+var minBranchWidth = 2,
+  maxBranchWidth = 8;
 var startGrowthSpeed = 4.5;
 var endGrowthSpeed = 1.5;
 var globalRotationSpeed = 0.06;
@@ -28,15 +27,24 @@ var noiseScale = 0.005;
 var canvasPadding = 300;
 var canvasMargin = 100;
 
-// const standardWindowSize = 1080;
+// referenced size for resizing elements
+const refWindowWidth = 1920,
+  refWindowHeight = 938;
+const resizeFactor = 0.8;
+
+// canvas
+var spawnArea;
 
 function setup() {
-  fitCanvasToWindow(1, 1);
-  // spawnWidth = canvasWidth;
-  canvas = createCanvas(canvasWidth, canvasHeight);
+  // spawnWidth = canvas.width;
+  canvas = createCanvas(windowWidth, windowHeight);
+  fitCanvasToWindow();
+  canvas.style('z-index', '0');
+  canvas.style('display', 'block');
+  canvas.style('overflow', 'hidden');
+  canvas.style('outline','0')
   init();
 
-  canvas.style("z-index", "0");
   if (canvasParent !== undefined && canvasParent != "") {
     canvas.parent(canvasParent);
   }
@@ -49,52 +57,79 @@ function setup() {
   frameRate(targetFPS);
 }
 
-// assign data that only can be created at runtime
-function init()
-{
-  blossomColor = color(180, 180, 180);
-  spawnArea = new Bound(canvasWidth - spawnWidth / 2, canvasHeight - 100, spawnWidth, 200);
-}
-
-function fitCanvasToWindow(percentX, percentY) {
-  canvasWidth = window.innerWidth * percentX;
-  canvasHeight = window.innerHeight * percentY;
-}
-
 // called every frame
 function draw() {
   // growUntilMarginUnion();
-  growUntilMarginSeparate();
+  growSeparate();
 
   // DEBUG
   // debugMousePos(0, false);
   // spawnArea.draw();
 }
 
-function growUntilMarginSeparate() {
+// called when web window is resized
+function windowResized() {
+  fitCanvasToWindow();
+  positionCanvas();
+  setupFlowers();
+}
+
+// assign data that only can be created at runtime
+function init() {
+  blossomColor = color(100);
+  spawnWidth = resizeToWindow(spawnWidth, resizeFactor);
+  spawnArea = new Bound(
+    canvas.width - spawnWidth / 2,
+    canvas.height - 100,
+    spawnWidth,
+    200
+  );
+
+  minBranchWidth = resizeToWindow(minBranchWidth, resizeFactor);
+  maxBranchWidth = resizeToWindow(maxBranchWidth, resizeFactor);
+}
+
+// returns a value that's resized based on current window size
+// Useful for rescaling stroke sizes when window resizes
+// param fromSize:
+// param factor: a number in range 0-1 to indicate the resize factor
+function resizeToWindow(fromSize, factor) {
+  return fromSize * lerp(1, windowWidth / refWindowWidth, factor);
+}
+
+// fit canvas width/height with the entire window with
+function fitCanvasToWindow(percentX, percentY) {
+    // a small number (1) is added to temporarily resolve scroll bar issue
+  resizeCanvas(
+  percentX === undefined ? windowWidth - .5 : windowWidth * percentX - .5,
+    percentY === undefined ? windowHeight - .5: windowHeight * percentY - .5
+  );
+}
+
+function growSeparate(stopAtMargin) {
   for (let i = 0; i < flowers.length; i++) {
     let flower = flowers[i];
 
-    var dampenSpeed01 = 1;
+    let dampenSpeed01 = 1;
     if (!spawnArea.contains(flower.pos)) {
       dampenSpeed01 = smoothstep(
         canvasMargin,
         canvasPadding,
-        flower.getDistFromBound(canvasWidth, canvasHeight)
+        flower.getDistFromBound(canvas.width, canvas.height)
       );
     }
-    // console.log("damp: " + dampen01 + ", dist: " + flower.getDistFromBound(canvasWidth, canvasHeight));
+    // console.log(i + ": " + flower.getDistFromBound(canvas.width, canvas.height))
+    // console.log("damp: " + dampen01 + ", dist: " + flower.getDistFromBound(canvas.width, canvas.height));
     flower.grow(lerp(endGrowthSpeed, startGrowthSpeed, dampenSpeed01));
     flower.draw();
+
     // if flower has hit the margin area, make it blossom
-    if (dampenSpeed01 == 0 && !spawnArea.contains(flower.pos)) {
-      flower.blossom();
+    if (stopAtMargin !== undefined && stopAtMargin) {
+      if (dampenSpeed01 == 0 && !spawnArea.contains(flower.pos)) {
+        flower.blossom();
+      }
     }
   }
-  // if (frameCount % 150 == 0) {
-  //   noiseSeed(random(0, 100));
-  //   console.log("change noise");
-  // }
 }
 
 function growUntilMarginUnion() {
@@ -103,15 +138,15 @@ function growUntilMarginUnion() {
   let dampen01 = smoothstep(
     canvasMargin01,
     canvasPadding01,
-    flowerClosestToBound.getDistFromBound(canvasWidth, canvasHeight)
+    flowerClosestToBound.getDistFromBound(canvas.width, canvas.height)
   );
   if (dampen01 == 0 && !spawnArea.contains(flowerClosestToBound.pos)) {
     if (!spawnArea.contains(flowerClosestToBound.pos)) {
       console.log(
         "NOT contain: " +
-        flowerClosestToBound.pos.x +
-        ", " +
-        flowerClosestToBound.pos.y
+          flowerClosestToBound.pos.x +
+          ", " +
+          flowerClosestToBound.pos.y
       );
     }
     marginHit = true;
@@ -137,7 +172,14 @@ function debugMousePos(size, logPosition) {
   }
   if (logPosition) {
     console.log(
-      "x: " + mouseX + "/" + canvasWidth + ", y: " + mouseY + "/" + canvasHeight
+      "x: " +
+        mouseX +
+        "/" +
+        canvas.width +
+        ", y: " +
+        mouseY +
+        "/" +
+        canvas.height
     );
   }
 }
@@ -153,33 +195,26 @@ function findFlowerClosestToBound() {
   let resultIndex = 0;
   for (let i = 1; i < flowers.length; i++) {
     if (
-      flowers[i].getDistFromBound(canvasWidth, canvasHeight) <
-      flowers[resultIndex].getDistFromBound(canvasWidth, canvasHeight)
+      flowers[i].getDistFromBound(canvas.width, canvas.height) <
+      flowers[resultIndex].getDistFromBound(canvas.width, canvas.height)
     ) {
       resultIndex = i;
     }
   }
-  // console.log("index: " + resultIndex + ", dist: " + flowers[resultIndex].getDistFromBound(canvasWidth, canvasHeight));
+  // console.log("index: " + resultIndex + ", dist: " + flowers[resultIndex].getDistFromBound(canvas.width, canvas.height));
   return flowers[resultIndex];
 }
 
-// called when mouse is clicked
-function mouseClicked() {
-  // flowers.forEach(element => {
-  //   // element.isGrowing = !element.isGrowing;
-  //   element.blossom(false);
-  // });
-}
-
-// called when web window is resized
-function windowResized() {
-  positionCanvas();
-}
-
-function positionCanvas() {
-  var x = windowWidth - canvasWidth;
-  var y = windowHeight - canvasHeight;
-  canvas.position(x, y);
+function positionCanvas(startAtEnd = false) {
+  var x = windowWidth - canvas.width;
+  var y = windowHeight - canvas.height;
+  if(startAtEnd)
+  {
+    canvas.position(x, y);
+  }
+  else{
+    canvas.position(0,0);
+  }
 }
 
 function setupColorThemes() {
@@ -191,6 +226,7 @@ function setupColorThemes() {
 }
 
 function setupFlowers() {
+  clear()
   for (let i = 0; i < numFlowers; i++) {
     let randomDeg = random(minDeg, maxDeg);
     let randomDir = createVector(
@@ -200,7 +236,7 @@ function setupFlowers() {
     let randomWidth = random(minBranchWidth, maxBranchWidth);
 
     flowers[i] = new Flower(
-      color(random(20, 80)),
+      color(random(10, 60)),
       blossomColor,
       randomWidth,
       undefined,
@@ -217,7 +253,10 @@ function setupFlowers() {
     //   0.2
     // );
 
-    flowers[i].pos = createVector(canvasWidth + random(-spawnWidth, 0), canvasHeight);
+    flowers[i].pos = createVector(
+      canvas.width + random(-spawnWidth, 0),
+      canvas.height
+    );
     flowers[i].dir = randomDir;
   }
 }
@@ -236,11 +275,13 @@ function Bound(offsetX, offsetY, sizeX, sizeY) {
 }
 
 Bound.prototype = {
-  randomPoint: function () {
-    return createVector(random(offsetX - sizeX / 2, offsetX + this.size / 2),
-      random(offsetY - sizeY / 2, offsetY + sizeY / 2));
+  randomPoint: function() {
+    return createVector(
+      random(offsetX - sizeX / 2, offsetX + this.size / 2),
+      random(offsetY - sizeY / 2, offsetY + sizeY / 2)
+    );
   },
-  contains: function (point) {
+  contains: function(point) {
     // a very naive and non-flexible solution
     return (
       point.x <= this.offset.x + this.size.x / 2 &&
@@ -249,7 +290,7 @@ Bound.prototype = {
       point.y >= this.offset.y - this.size.y / 2
     );
   },
-  draw: function () {
+  draw: function() {
     if (col === undefined) {
       col = color(255, 255, 255);
     }
@@ -257,10 +298,15 @@ Bound.prototype = {
     stroke(col.toString("#rrggbb"));
     strokeWeight(2);
     noFill();
-    rect(this.offset.x - this.size.x / 2, this.offset.y - this.size.y / 2, this.size.x, this.size.y);
+    rect(
+      this.offset.x - this.size.x / 2,
+      this.offset.y - this.size.y / 2,
+      this.size.x,
+      this.size.y
+    );
     ellipse(this.offset.x, this.offset.y, 1, 1);
   }
-}
+};
 
 // Experimental
 function Polygon2D(points) {
@@ -268,13 +314,19 @@ function Polygon2D(points) {
 }
 
 Polygon2D.prototype = {
-  addPoint: function (point) {
+  addPoint: function(point) {
     this.points.push(point);
-
   }
-}
+};
 
-function Flower(stemColor, blossomColor, width, blossomSize, lifetime, blossomTime) {
+function Flower(
+  stemColor,
+  blossomColor,
+  width,
+  blossomSize,
+  lifetime,
+  blossomTime
+) {
   this.stemColor = stemColor;
   this.blossomColor = blossomColor !== undefined ? blossomColor : stemColor;
   this.width = width;
@@ -292,17 +344,18 @@ function Flower(stemColor, blossomColor, width, blossomSize, lifetime, blossomTi
 }
 
 Flower.prototype = {
-  time: function () {
+  time: function() {
     return millis() / 1000 - this.startTime;
   },
-  grow: function (speed) {
+  grow: function(speed) {
     if (this.isGrowing) {
       this.lastPos = this.pos.copy();
       this.pos.add(p5.Vector.mult(this.dir, speed));
       // maps the noise from 0~1 to -1~1
       this.dir.rotate(
-        (noise((this.pos.x, this.pos.y ) * noiseScale) - 0.5)*2 *
-        globalRotationSpeed
+        (noise((this.pos.x, this.pos.y) * noiseScale) - 0.5) *
+          2 *
+          globalRotationSpeed
       );
 
       // blossom if lifetime runs out
@@ -311,7 +364,7 @@ Flower.prototype = {
       }
     }
   },
-  draw: function () {
+  draw: function() {
     // draw stem
     if (this.isGrowing) {
       stroke(this.stemColor);
@@ -322,7 +375,6 @@ Flower.prototype = {
 
     // draw blossom
     if (this.blossomTime !== undefined) {
-      
       if (millis() / 1000 - this.blossomStartTime <= this.blossomTime) {
         let currentSize = lerp(
           0,
@@ -341,14 +393,18 @@ Flower.prototype = {
               (i * this.blossomTime) / this.numRings
             ) {
               // 5 is a magic number I found that makes the rings equal distant
-              ellipse(this.pos.x, this.pos.y, this.blossomSize + i * this.width * 5);
+              ellipse(
+                this.pos.x,
+                this.pos.y,
+                this.blossomSize + i * this.width * 5
+              );
             }
           }
         }
       }
     }
   },
-  blossom: function (keepGrowing = false) {
+  blossom: function(keepGrowing = false) {
     if (!this.hasBlossom) {
       this.blossomStartTime = millis() / 1000;
       stroke(255);
@@ -361,26 +417,26 @@ Flower.prototype = {
       this.hasBlossom = true;
     }
   },
-  getDistFromBound: function (sizeX, sizeY) {
+  getDistFromBound: function(sizeX, sizeY) {
     var distX = this.getDistFromBoundX(sizeX);
     var distY = this.getDistFromBoundY(sizeY);
     // console.log("x: " + this.pos.x + ", y: " + this.pos.y);
     // check which coordinate the position is closer to
     return distX < distY ? distX : distY;
   },
-  getDistFromBoundX: function (sizeX) {
+  getDistFromBoundX: function(sizeX) {
     if (this.pos.x < sizeX / 2) {
       return this.pos.x;
     }
     return sizeX - this.pos.X;
   },
-  getDistFromBoundY: function (sizeY) {
+  getDistFromBoundY: function(sizeY) {
     if (this.pos.y < sizeY / 2) {
       return this.pos.y;
     }
     return sizeY - this.pos.y;
   }
-}
+};
 
 function ColorTheme(colors) {
   this.colors = colors;

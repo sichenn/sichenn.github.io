@@ -1,7 +1,7 @@
 const parallaxClass = "parallax";
 const moveScale = 0;
 // parallax scale 0-1
-const parallaxScale = 0.66;
+const parallaxScale = 0.33;
 var maxMoveRange;
 var targetUpdateRate = 1 / 30;
 
@@ -28,7 +28,7 @@ function start() {
 }
 
 function update() {
-  console.log("tick");
+  // console.log("tick");
 }
 
 function parallaxAll() {
@@ -157,8 +157,7 @@ function messenger() {
 
 function menuParallax(e) {
   if (isMobile()) {
-    menuParallaxMobile();
-    console.log("is Mobile");
+    // menuParallaxMobile();
   } else {
     menuParallaxPC(parallaxScale);
   }
