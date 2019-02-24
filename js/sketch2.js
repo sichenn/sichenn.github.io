@@ -8,21 +8,21 @@ var targetFPS = 30;
 
 // *** BRANCH PROPERTIES ***
 // The degrees where the branches grow
-var numFlowers = 200;
-var spawnWidth = 900;
+var numFlowers = 400;
+var spawnWidth = 1920;
 
 var minDeg = -90,
   maxDeg = -120;
 // due to how the canvas setup this should be the opposite of the regular cartesian coordinate
 var blossomCol;
 var minLifetime = 1,
-  maxLifetime = 10;
+  maxLifetime = 4;
 var minBranchWidth = 2,
   maxBranchWidth = 5;
 var startGrowthSpeed = 4.5;
 var endGrowthSpeed = 1.5;
-var globalRotationSpeed = 0.05;
-var noiseScale = 0.01;
+var globalRotationSpeed = 0.5;
+var noiseScale = 0.005;
 // prevent branches from growing outside of the canvas
 var canvasPadding = 300;
 var canvasMargin = 100;
@@ -53,7 +53,7 @@ function setup() {
   setupColorThemes();
   setupFlowers();
   // assign a noise seed to get consistent results
-  noiseSeed(0);
+  noiseSeed(random(0,5));
   frameRate(targetFPS);
 }
 
@@ -234,14 +234,17 @@ function setupFlowers() {
     );
     let randomWidth = random(minBranchWidth, maxBranchWidth);
 
-    colorMode(HSB, 255);
     // add variation
-    // let randBlossomColor = color(hue(blossomCol), saturation(blossomCol), brightness(blossomCol));
+    colorMode(HSB);
+    let randBlossomColor = color(
+    hue(blossomCol) + random(-20,20),
+    saturation(blossomCol) ,
+    brightness(blossomCol));
     colorMode(RGB, 255);
 
     flowers[i] = new Flower(
       color(255),
-      blossomCol,
+      randBlossomColor,
       randomWidth,
       undefined,
       random(minLifetime, maxLifetime),
@@ -374,6 +377,8 @@ Flower.prototype = {
     // draw stem
     if (this.isGrowing) {
       stroke(lerpColor(this.blossomColor, this.stemColor, this.time()/this.lifetime));
+    //   stroke(lerpColor(this.blossomColor, color(0,0,0,0), this.time()/this.lifetime));
+    //   stroke(this.blossomColor);
       strokeWeight(this.width);
 
       line(this.lastPos.x, this.lastPos.y, this.pos.x, this.pos.y);

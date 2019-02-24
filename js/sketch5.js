@@ -4,25 +4,8 @@ var canvasParent = "";
 var startTime;
 var flowers = [];
 var colorThemes;
-var targetFPS = 30;
+var targetFPS = 60;
 
-// *** BRANCH PROPERTIES ***
-// The degrees where the branches grow
-var numFlowers = 200;
-var spawnWidth = 900;
-
-var minDeg = -90,
-  maxDeg = -120;
-// due to how the canvas setup this should be the opposite of the regular cartesian coordinate
-var blossomCol;
-var minLifetime = 1,
-  maxLifetime = 10;
-var minBranchWidth = 2,
-  maxBranchWidth = 5;
-var startGrowthSpeed = 4.5;
-var endGrowthSpeed = 1.5;
-var globalRotationSpeed = 0.05;
-var noiseScale = 0.01;
 // prevent branches from growing outside of the canvas
 var canvasPadding = 300;
 var canvasMargin = 100;
@@ -36,58 +19,46 @@ const resizeFactor = 0.8;
 var spawnArea;
 
 function setup() {
-  // spawnWidth = canvas.width;
   canvas = createCanvas(windowWidth, windowHeight);
   fitCanvasToWindow();
-  canvas.style("z-index", "0");
+  canvas.style("z-index", "-1");
   canvas.style("display", "block");
   canvas.style("overflow", "hidden");
   canvas.style("outline", "0");
-  init();
 
   if (canvasParent !== undefined && canvasParent != "") {
     canvas.parent(canvasParent);
   }
   positionCanvas();
 
-  setupColorThemes();
-  setupFlowers();
-  // assign a noise seed to get consistent results
-  noiseSeed(0);
+  noiseSeed(random(0, 5));
   frameRate(targetFPS);
 }
 
+var pos = 0;
+var speed = 20;
+var rotateSpeed = 2;
 // called every frame
 function draw() {
-  // growUntilMarginUnion();
-  growSeparate();
-
-  // DEBUG
-  // debugMousePos(0, false);
-  // spawnArea.draw();
+    strokeWeight(1);
+    fill(100);
+    stroke(255);
+    pos = pos + speed;
+    if(pos>canvas.width)
+    {
+        pos = 0;
+    }
+    // ellipse(pos, canvas.height/2, sin(millis()/1000 * rotateSpeed) * 100);
+    line(pos, canvas.height, pos + sin(millis()/1000 * rotateSpeed) * 100, 
+    canvas.height/2 + cos(millis()/1000 * rotateSpeed) *  100);
+    fill(0,0,0,10);
+    rect(0,0,canvas.width,canvas.height);
 }
 
 // called when web window is resized
 function windowResized() {
   fitCanvasToWindow();
   positionCanvas();
-  setupFlowers();
-}
-
-// assign data that only can be created at runtime
-function init() {
-  blossomCol = color(24, 37, 228);
-
-  spawnWidth = resizeToWindow(spawnWidth, resizeFactor);
-  spawnArea = new Bound(
-    canvas.width - spawnWidth / 2,
-    canvas.height - 100,
-    spawnWidth,
-    200
-  );
-
-  minBranchWidth = resizeToWindow(minBranchWidth, resizeFactor);
-  maxBranchWidth = resizeToWindow(maxBranchWidth, resizeFactor);
 }
 
 // returns a value that's resized based on current window size
@@ -192,20 +163,6 @@ function smoothstep(min, max, value) {
   return x * x * (3 - 2 * x);
 }
 
-function findFlowerClosestToBound() {
-  let resultIndex = 0;
-  for (let i = 1; i < flowers.length; i++) {
-    if (
-      flowers[i].getDistFromBound(canvas.width, canvas.height) <
-      flowers[resultIndex].getDistFromBound(canvas.width, canvas.height)
-    ) {
-      resultIndex = i;
-    }
-  }
-  // console.log("index: " + resultIndex + ", dist: " + flowers[resultIndex].getDistFromBound(canvas.width, canvas.height));
-  return flowers[resultIndex];
-}
-
 function positionCanvas(startAtEnd = false) {
   var x = windowWidth - canvas.width;
   var y = windowHeight - canvas.height;
@@ -213,55 +170,6 @@ function positionCanvas(startAtEnd = false) {
     canvas.position(x, y);
   } else {
     canvas.position(0, 0);
-  }
-}
-
-function setupColorThemes() {
-  colorThemes = new ColorTheme(
-    color(25, 12, 255),
-    color(242, 255, 245),
-    color(255, 242, 252)
-  );
-}
-
-function setupFlowers() {
-  clear();
-  for (let i = 0; i < numFlowers; i++) {
-    let randomDeg = random(minDeg, maxDeg);
-    let randomDir = createVector(
-      cos(radians(randomDeg)),
-      sin(radians(randomDeg))
-    );
-    let randomWidth = random(minBranchWidth, maxBranchWidth);
-
-    colorMode(HSB, 255);
-    // add variation
-    // let randBlossomColor = color(hue(blossomCol), saturation(blossomCol), brightness(blossomCol));
-    colorMode(RGB, 255);
-
-    flowers[i] = new Flower(
-      color(255),
-      blossomCol,
-      randomWidth,
-      undefined,
-      random(minLifetime, maxLifetime),
-      0.2
-    );
-
-    // debug
-    // flowers[i] = new Flower(
-    //   color(random(40, 120)),
-    //   randomWidth,
-    //   15,
-    //   undefined,
-    //   0.2
-    // );
-
-    flowers[i].pos = createVector(
-      canvas.width + random(-spawnWidth, 0),
-      canvas.height
-    );
-    flowers[i].dir = randomDir;
   }
 }
 
@@ -346,111 +254,5 @@ function Flower(
   this.startTime = millis() / 1000;
   this.blossomStartTime;
   this.currLifetime;
-}
-
-Flower.prototype = {
-  time: function() {
-    return millis() / 1000 - this.startTime;
-  },
-  grow: function(speed) {
-    if (this.isGrowing) {
-      this.lastPos = this.pos.copy();
-      this.pos.add(p5.Vector.mult(this.dir, speed));
-      // maps the noise from 0~1 to -1~1
-      let rotateDegree = noise(
-        this.pos.x * noiseScale,
-        this.pos.y * noiseScale
-      );
-      rotateDegree = map(rotateDegree, 0, 1, -1, 1);
-      this.dir.rotate(rotateDegree * globalRotationSpeed);
-
-      // blossom if lifetime runs out
-      if (this.lifetime !== undefined && this.time() > this.lifetime) {
-        this.blossom();
-      }
-    }
-  },
-  draw: function() {
-    // draw stem
-    if (this.isGrowing) {
-      stroke(lerpColor(this.blossomColor, this.stemColor, this.time()/this.lifetime));
-      strokeWeight(this.width);
-
-      line(this.lastPos.x, this.lastPos.y, this.pos.x, this.pos.y);
-    }
-
-    // draw blossom
-    let curTime = millis() / 1000;
-    if (this.blossomTime !== undefined) {
-      if (curTime - this.blossomStartTime <= this.blossomTime) {
-        let currentSize = lerp(
-          0,
-          this.blossomSize,
-          (curTime - this.blossomStartTime) / this.blossomTime
-        );
-        if (currentSize <= this.blossomSize) {
-          stroke(this.blossomColor);
-          fill(this.blossomColor);
-          // draw first blossom
-          strokeWeight(1);
-          ellipse(this.pos.x, this.pos.y, this.blossomSize);
-
-          // draw the rest of the blossoms
-          strokeWeight(this.width);
-          noFill();
-          // TODO: This is very inefficient
-          for (let i = 1; i <= this.numBlossoms; i++) {
-            if (
-              curTime - this.blossomStartTime >=
-              (i * this.blossomTime) / this.numBlossoms
-            ) {
-              // 5 is a magic number I found that makes the rings equal distant
-              ellipse(
-                this.pos.x,
-                this.pos.y,
-                this.blossomSize + i * (this.width * 4)
-              );
-            }
-          }
-        }
-      }
-    }
-  },
-  blossom: function(keepGrowing = false) {
-    if (!this.hasBlossom) {
-      this.blossomStartTime = millis() / 1000;
-      stroke(255);
-      fill(255);
-      // ellipse(this.pos.x, this.pos.y, 20, 20);
-      // ellipse(this.pos.x, this.pos.y, 20, 20);
-      if (!keepGrowing) {
-        // if don't keep growing, stop growing
-        this.isGrowing = false;
-      }
-      this.hasBlossom = true;
-    }
-  },
-  getDistFromBound: function(sizeX, sizeY) {
-    var distX = this.getDistFromBoundX(sizeX);
-    var distY = this.getDistFromBoundY(sizeY);
-    // console.log("x: " + this.pos.x + ", y: " + this.pos.y);
-    // check which coordinate the position is closer to
-    return distX < distY ? distX : distY;
-  },
-  getDistFromBoundX: function(sizeX) {
-    if (this.pos.x < sizeX / 2) {
-      return this.pos.x;
-    }
-    return sizeX - this.pos.X;
-  },
-  getDistFromBoundY: function(sizeY) {
-    if (this.pos.y < sizeY / 2) {
-      return this.pos.y;
-    }
-    return sizeY - this.pos.y;
-  }
-};
-
-function ColorTheme(colors) {
-  this.colors = colors;
+  this.rotationSpeed;
 }

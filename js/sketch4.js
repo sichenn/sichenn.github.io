@@ -8,39 +8,27 @@ var targetFPS = 30;
 
 // *** BRANCH PROPERTIES ***
 // The degrees where the branches grow
-var numFlowers = 200;
-var spawnWidth = 900;
+var numFlowers = 40;
+var spawnWidth = 1920;
 
-var minDeg = -90,
-  maxDeg = -120;
 // due to how the canvas setup this should be the opposite of the regular cartesian coordinate
 var blossomCol;
-var minLifetime = 1,
-  maxLifetime = 10;
-var minBranchWidth = 2,
-  maxBranchWidth = 5;
-var startGrowthSpeed = 4.5;
-var endGrowthSpeed = 1.5;
-var globalRotationSpeed = 0.05;
+var minBranchWidth = 60,
+  maxBranchWidth = 120;
+var startGrowthSpeed = 3;
+var endGrowthSpeed = 0.8;
+var globalRotationSpeed = 0.1;
 var noiseScale = 0.01;
-// prevent branches from growing outside of the canvas
-var canvasPadding = 300;
-var canvasMargin = 100;
 
-// referenced size for resizing elements
 const refWindowWidth = 1920,
   refWindowHeight = 938;
 const resizeFactor = 0.8;
-
-// canvas
-var spawnArea;
 
 function setup() {
   // spawnWidth = canvas.width;
   canvas = createCanvas(windowWidth, windowHeight);
   fitCanvasToWindow();
-  canvas.style("z-index", "0");
-  canvas.style("display", "block");
+  canvas.style("z-index", "-1");
   canvas.style("overflow", "hidden");
   canvas.style("outline", "0");
   init();
@@ -53,14 +41,16 @@ function setup() {
   setupColorThemes();
   setupFlowers();
   // assign a noise seed to get consistent results
-  noiseSeed(0);
+  noiseSeed(random(0, 5));
   frameRate(targetFPS);
 }
 
 // called every frame
 function draw() {
-  // growUntilMarginUnion();
   growSeparate();
+  strokeWeight(0);
+  fill(0, 0, 0, 15);
+  rect(0, 0, canvas.width, canvas.height);
 
   // DEBUG
   // debugMousePos(0, false);
@@ -110,61 +100,11 @@ function fitCanvasToWindow(percentX, percentY) {
 function growSeparate(stopAtMargin) {
   for (let i = 0; i < flowers.length; i++) {
     let flower = flowers[i];
-
-    let dampenSpeed01 = 1;
-    if (!spawnArea.contains(flower.pos)) {
-      dampenSpeed01 = smoothstep(
-        canvasMargin,
-        canvasPadding,
-        flower.getDistFromBound(canvas.width, canvas.height)
-      );
-    }
     // console.log(i + ": " + flower.getDistFromBound(canvas.width, canvas.height))
     // console.log("damp: " + dampen01 + ", dist: " + flower.getDistFromBound(canvas.width, canvas.height));
-    flower.grow(lerp(endGrowthSpeed, startGrowthSpeed, dampenSpeed01));
+    flower.grow( startGrowthSpeed);
     flower.draw();
-
-    // if flower has hit the margin area, make it blossom
-    if (stopAtMargin !== undefined && stopAtMargin) {
-      if (dampenSpeed01 == 0 && !spawnArea.contains(flower.pos)) {
-        flower.blossom();
-      }
-    }
   }
-}
-
-function growUntilMarginUnion() {
-  let marginHit = false;
-  let flowerClosestToBound = getDistFromBound();
-  let dampen01 = smoothstep(
-    canvasMargin01,
-    canvasPadding01,
-    flowerClosestToBound.getDistFromBound(canvas.width, canvas.height)
-  );
-  if (dampen01 == 0 && !spawnArea.contains(flowerClosestToBound.pos)) {
-    if (!spawnArea.contains(flowerClosestToBound.pos)) {
-      console.log(
-        "NOT contain: " +
-          flowerClosestToBound.pos.x +
-          ", " +
-          flowerClosestToBound.pos.y
-      );
-    }
-    marginHit = true;
-  }
-  for (let i = 0; i < flowers.length; i++) {
-    let flower = flowers[i];
-
-    flower.grow(lerp(dampen01, startGrowthSpeed, endGrowthSpeed));
-    flower.draw();
-    if (marginHit) {
-      flower.blossom();
-    }
-  }
-  // if (frameCount % 150 == 0) {
-  //   noiseSeed(random(0, 100));
-  //   console.log("change noise");
-  // }
 }
 
 function debugMousePos(size, logPosition) {
@@ -226,27 +166,33 @@ function setupColorThemes() {
 
 function setupFlowers() {
   clear();
+  
   for (let i = 0; i < numFlowers; i++) {
-    let randomDeg = random(minDeg, maxDeg);
-    let randomDir = createVector(
-      cos(radians(randomDeg)),
-      sin(radians(randomDeg))
-    );
     let randomWidth = random(minBranchWidth, maxBranchWidth);
 
-    colorMode(HSB, 255);
     // add variation
-    // let randBlossomColor = color(hue(blossomCol), saturation(blossomCol), brightness(blossomCol));
+    colorMode(HSB);
+    let randBlossomColor = color(
+      hue(blossomCol) + random(-10, 20),
+      saturation(blossomCol),
+      brightness(blossomCol) + random(-80, -50)
+    );
     colorMode(RGB, 255);
 
+    let pos = createVector(random(0, canvas.width), random(0, canvas.height));
     flowers[i] = new Flower(
       color(255),
-      blossomCol,
+      randBlossomColor,
       randomWidth,
       undefined,
-      random(minLifetime, maxLifetime),
+      undefined,
       0.2
     );
+    flowers[i].dir = createVector(0, 1);
+    flowers[i].pos = pos;
+    flowers[i].rotationSpeed = globalRotationSpeed;
+    flowers[i].speed = lerp(endGrowthSpeed, startGrowthSpeed, smoothstep(minBranchWidth,maxBranchWidth, randomWidth));
+
 
     // debug
     // flowers[i] = new Flower(
@@ -257,11 +203,23 @@ function setupFlowers() {
     //   0.2
     // );
 
-    flowers[i].pos = createVector(
-      canvas.width + random(-spawnWidth, 0),
-      canvas.height
+    // flowers[i].dir = randomDir;
+  }
+
+  for (let i = numFlowers; i < numFlowers + 10; i++) {
+    let pos = createVector(random(0, canvas.width), random(0, canvas.height));
+    flowers[i] = new Flower(
+      color(255),
+      color(255),
+      4,
+      undefined,
+      undefined,
+      0.2
     );
-    flowers[i].dir = randomDir;
+    flowers[i].dir = createVector(0, 1);
+    flowers[i].pos = pos;
+    flowers[i].rotationSpeed = globalRotationSpeed/2;
+    flowers[i].speed = 0.5;
   }
 }
 
@@ -346,6 +304,8 @@ function Flower(
   this.startTime = millis() / 1000;
   this.blossomStartTime;
   this.currLifetime;
+  this.rotationSpeed;
+  this.speed = 1;
 }
 
 Flower.prototype = {
@@ -353,83 +313,40 @@ Flower.prototype = {
     return millis() / 1000 - this.startTime;
   },
   grow: function(speed) {
-    if (this.isGrowing) {
-      this.lastPos = this.pos.copy();
-      this.pos.add(p5.Vector.mult(this.dir, speed));
-      // maps the noise from 0~1 to -1~1
-      let rotateDegree = noise(
-        this.pos.x * noiseScale,
-        this.pos.y * noiseScale
-      );
-      rotateDegree = map(rotateDegree, 0, 1, -1, 1);
-      this.dir.rotate(rotateDegree * globalRotationSpeed);
+    this.lastPos = this.pos.copy();
+    this.pos.add(p5.Vector.mult(this.dir, speed * this.speed));
+    // maps the noise from 0~1 to -1~1
+    let rotateDegree = noise(this.pos.x * noiseScale, this.pos.y * noiseScale);
+    rotateDegree = map(rotateDegree, 0, 1, -1, 1);
+    this.dir.rotate(rotateDegree * this.rotationSpeed);
 
-      // blossom if lifetime runs out
-      if (this.lifetime !== undefined && this.time() > this.lifetime) {
-        this.blossom();
-      }
+    // blossom if lifetime runs out
+    if (this.pos.x > canvas.width) {
+      this.pos.x = 0;
+      this.lastPos.x = 0;
+    }
+    if (this.pos.x < 0) {
+      // this.dir.x = -this.dir.x;
+      this.pos.x = canvas.width;
+      this.lastPos.x = canvas.width;
+    }
+    if (this.pos.y > canvas.height) {
+      this.pos.y = 0;
+      this.lastPos.y = 0;
+    }
+    if (this.pos.y < 0) {
+      // this.dir.x = -this.dir.x;
+      this.pos.y = canvas.height;
+      this.lastPos.y = canvas.height;
     }
   },
   draw: function() {
-    // draw stem
-    if (this.isGrowing) {
-      stroke(lerpColor(this.blossomColor, this.stemColor, this.time()/this.lifetime));
-      strokeWeight(this.width);
-
-      line(this.lastPos.x, this.lastPos.y, this.pos.x, this.pos.y);
-    }
-
-    // draw blossom
-    let curTime = millis() / 1000;
-    if (this.blossomTime !== undefined) {
-      if (curTime - this.blossomStartTime <= this.blossomTime) {
-        let currentSize = lerp(
-          0,
-          this.blossomSize,
-          (curTime - this.blossomStartTime) / this.blossomTime
-        );
-        if (currentSize <= this.blossomSize) {
-          stroke(this.blossomColor);
-          fill(this.blossomColor);
-          // draw first blossom
-          strokeWeight(1);
-          ellipse(this.pos.x, this.pos.y, this.blossomSize);
-
-          // draw the rest of the blossoms
-          strokeWeight(this.width);
-          noFill();
-          // TODO: This is very inefficient
-          for (let i = 1; i <= this.numBlossoms; i++) {
-            if (
-              curTime - this.blossomStartTime >=
-              (i * this.blossomTime) / this.numBlossoms
-            ) {
-              // 5 is a magic number I found that makes the rings equal distant
-              ellipse(
-                this.pos.x,
-                this.pos.y,
-                this.blossomSize + i * (this.width * 4)
-              );
-            }
-          }
-        }
-      }
-    }
+    let variableWidth = noise(this.pos.x * noiseScale * 0.5);
+    stroke(this.blossomColor);
+    strokeWeight(this.width * lerp(0, 1, variableWidth));
+    line(this.lastPos.x, this.lastPos.y, this.pos.x, this.pos.y);
   },
-  blossom: function(keepGrowing = false) {
-    if (!this.hasBlossom) {
-      this.blossomStartTime = millis() / 1000;
-      stroke(255);
-      fill(255);
-      // ellipse(this.pos.x, this.pos.y, 20, 20);
-      // ellipse(this.pos.x, this.pos.y, 20, 20);
-      if (!keepGrowing) {
-        // if don't keep growing, stop growing
-        this.isGrowing = false;
-      }
-      this.hasBlossom = true;
-    }
-  },
+
   getDistFromBound: function(sizeX, sizeY) {
     var distX = this.getDistFromBoundX(sizeX);
     var distY = this.getDistFromBoundY(sizeY);
